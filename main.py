@@ -1,3 +1,4 @@
+import os
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
@@ -10,7 +11,7 @@ from aiogram.types import FSInputFile, ReplyKeyboardRemove
 # =========================================================
 
 # 1. Your bot token
-TOKEN = "8405037254:AAH-YlQCvru2bOXjJe8y3HmQTNF1_StOJRY"  # <--- ЗАМЕНИТЕ ВАШИМ ТОКЕНОМ
+TOKEN = os.environ.get("BOT_TOKEN")
 
 # 2. Your Telegram ID (where screenshots will be forwarded)
 ADMIN_ID = 1866001822  # <--- ЗАМЕНИТЕ ЭТО ЧИСЛО НА ВАШ ID
