@@ -1,276 +1,160 @@
 import os
 import asyncio
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import CommandStart
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile, ReplyKeyboardRemove
+from itertools import cycle
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 
 # =========================================================
-#                   1. CONFIGURATION (MANDATORY CHANGES)
+#                   1. КОНФИГУРАЦИЯ И СЕКРЕТЫ
 # =========================================================
 
-# 1. Your bot token
-TOKEN = os.environ.get("BOT_TOKEN")
+TOKEN = os.environ.get("BOT_TOKEN") 
 
-# 2. Your Telegram ID (where screenshots will be forwarded)
-ADMIN_ID = 1866001822  # <--- ЗАМЕНИТЕ ЭТО ЧИСЛО НА ВАШ ID
+# ПЛАТЕЖНЫЕ АККАУНТЫ
+PAYPAL_EMAILS = [
+    os.environ.get("PAYPAL_EMAIL_1", "error_paypal_1@example.com"),
+    os.environ.get("PAYPAL_EMAIL_2", "error_paypal_2@example.com")
+]
+USDT_ADDRESS = os.environ.get("USDT_ADDRESS", "error_usdt_address")
 
-# 3. Payment details (ОБНОВЛЕНО: Новый текст для PayPal)
-USDT_DETAILS = "USDT (TRC-20) Wallet Address: **TzXXXXXXXXXXXX**\n\nPlease pay the exact amount."
+# Ротация PayPal
+paypal_iterator = cycle(PAYPAL_EMAILS)
 
-# ИЗМЕНЕНИЕ 1: Обновленный текст с жирным шрифтом
-PAYPAL_DETAILS = "Our PayPal: **email@example.com**\n\n" \
-                 "**⚠️ IMPORTANT:**\n" \
-                 "Please use the **\"Friends and Family\"** option to ensure the full payment is received. " \
-                 "If using **\"Goods and Services,\"** **YOU MUST COVER ALL PROCESSING FEES.**"
-
-ALIPAY_DETAILS = "Our Alipay Number: **1234567890**"
-
-# 4. Paths to QR code images
+# ПУТИ К ФАЙЛАМ
 USDT_QR_PATH = "usdt_qr.png" 
 ALIPAY_QR_PATH = "alipay_qr.png" 
-
-# 5. Welcome photo path (ПРОВЕРЬТЕ ИМЯ!)
 WELCOME_PHOTO_PATH = "welcome_photo.jpg" 
 
 # =========================================================
-#                    2. FSM AND INITIALIZATION
+#                 2. Инициализация
 # =========================================================
 
-# State machine for screenshot waiting
-class PaymentStates(StatesGroup):
-    waiting_for_screenshot = State()
-
-# Initialize bot and dispatcher
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 # =========================================================
-#                       3. KEYBOARDS
+#                 3. КЛАВИАТУРЫ
 # =========================================================
 
-# Main payment selection keyboard
-def get_payment_keyboard():
-    keyboard = types.InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                types.InlineKeyboardButton(text="💰 USDt (TRC-20)", callback_data="pay_usdt"),
-                types.InlineKeyboardButton(text="💳 PayPal", callback_data="pay_paypal"),
-            ],
-            [
-                types.InlineKeyboardButton(text="💸 Alipay", callback_data="pay_alipay"),
-            ]
-        ]
-    )
-    return keyboard
+main_menu = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="ОПЛАТА", callback_data="payment_methods")]
+])
 
-# Confirmation and Back buttons
-confirm_and_back_keyboard = types.InlineKeyboardMarkup(
-    inline_keyboard=[
-        [
-            types.InlineKeyboardButton(text="✅ I Paid", callback_data="confirm_payment"),
-            types.InlineKeyboardButton(text="⬅️ Back", callback_data="back_to_menu")
-        ]
-    ]
-)
+payment_methods_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="PayPal", callback_data="pay_paypal")],
+    [InlineKeyboardButton(text="USDT (TRC20)", callback_data="pay_usdt")],
+    [InlineKeyboardButton(text="AliPay", callback_data="pay_alipay")],
+    [InlineKeyboardButton(text="🔙 НАЗАД", callback_data="back_to_main")]
+])
 
 # =========================================================
-#                       4. HANDLERS
+#                 4. ХЕНДЛЕРЫ
 # =========================================================
 
-# 1. /start handler 
-@dp.message(CommandStart())
-async def command_start_handler(message: types.Message) -> None:
-    
-    # 1. Remove any stuck ReplyKeyboardMarkup
-    await message.answer(
-        "Starting bot...",
-        reply_markup=ReplyKeyboardRemove() 
-    )
-
-    # 2. Send welcome photo and main menu
-    try:
-        photo_file = FSInputFile(WELCOME_PHOTO_PATH)
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    if os.path.exists(WELCOME_PHOTO_PATH):
+        welcome_photo = FSInputFile(WELCOME_PHOTO_PATH)
         await bot.send_photo(
             chat_id=message.chat.id,
-            photo=photo_file,
-            caption=f"Hello, {message.from_user.full_name}! 👋\n\n"
-                    "Please select your preferred payment method:",
-            reply_markup=get_payment_keyboard()
+            photo=welcome_photo,
+            caption="Приветственное сообщение с инструкциями.",
+            reply_markup=main_menu
         )
-    except FileNotFoundError:
-        # Fallback if photo is not found
-        await message.answer(
-            f"Hello, {message.from_user.full_name}! 👋\n\n"
-            "Please select your preferred payment method:",
-            reply_markup=get_payment_keyboard()
-        )
-    except Exception as e:
-        # Fallback for other photo errors
-        print(f"Error sending photo: {e}")
-        await message.answer(
-            f"Hello, {message.from_user.full_name}! 👋\n\n"
-            "Please select your preferred payment method:",
-            reply_markup=get_payment_keyboard()
-        )
-
-
-# 2. Back button handler (ИЗМЕНЕНИЕ 2: Удаляем предыдущее сообщение с реквизитами и перезапускаем меню)
-@dp.callback_query(lambda c: c.data == 'back_to_menu')
-async def back_to_menu_handler(callback_query: types.CallbackQuery, state: FSMContext):
-    
-    # 1. Удаляем сообщение с реквизитами (которое содержит кнопку "Назад")
-    await bot.delete_message(
-        chat_id=callback_query.message.chat.id,
-        message_id=callback_query.message.message_id
-    )
-    
-    # 2. Пытаемся удалить предыдущее сообщение (которое было "You have selected...")
-    try:
-        # УДАЛИТЬ ЛИШНЕЕ СООБЩЕНИЕ ИЗ ЧАТА
-        await bot.delete_message(
-            chat_id=callback_query.message.chat.id,
-            message_id=callback_query.message.message_id - 1
-        )
-    except Exception:
-        # Игнорируем ошибку, если сообщение не удалось найти/удалить (например, если оно было старым)
-        pass
-
-    # 3. Повторно запускаем /start для возврата к главному меню (с фото)
-    await command_start_handler(callback_query.message)
-        
-    await callback_query.answer()
-
-
-# 3. Payment selection handler
-@dp.callback_query(lambda c: c.data and c.data.startswith('pay_'))
-async def process_payment_selection(callback_query: types.CallbackQuery):
-    
-    method = callback_query.data.split('_')[1]
-    details = ""
-    send_photo = False
-    qr_path = None 
-
-    # 1. РЕДАКТИРУЕМ ПРЕДЫДУЩЕЕ СООБЩЕНИЕ МЕНЮ
-    # Изменяем подпись (caption) сообщения с фото.
-    try:
-        await bot.edit_message_caption(
-            chat_id=callback_query.message.chat.id,
-            message_id=callback_query.message.message_id,
-            caption="You have selected a payment method. Here are the details:",
-            reply_markup=None # Убираем кнопки с выбора
-        )
-    except Exception:
-        # Если не удалось отредактировать подпись (например, если было только текст)
-        await bot.edit_message_text(
-            chat_id=callback_query.message.chat.id,
-            message_id=callback_query.message.message_id,
-            text="You have selected a payment method. Here are the details:",
-            reply_markup=None
-        )
-
-
-    # 2. ОПРЕДЕЛЯЕМ РЕКВИЗИТЫ
-    if method == "usdt":
-        details = USDT_DETAILS
-        qr_path = USDT_QR_PATH
-        send_photo = True
-    elif method == "paypal":
-        details = PAYPAL_DETAILS
-        send_photo = False
-    elif method == "alipay":
-        details = ALIPAY_DETAILS
-        qr_path = ALIPAY_QR_PATH
-        send_photo = True
-
-    # 3. ОТПРАВЛЯЕМ РЕКВИЗИТЫ
-    if send_photo:
-        try:
-            photo_file = FSInputFile(qr_path)
-            
-            await bot.send_photo(
-                chat_id=callback_query.message.chat.id,
-                photo=photo_file,
-                caption=f"**Payment Method: {method.upper()}**\n\n{details}\n\n[QR code for payment]",
-                parse_mode="Markdown",
-                reply_markup=confirm_and_back_keyboard
-            )
-        except FileNotFoundError:
-            # Fallback if QR code is missing
-            await bot.send_message(
-                chat_id=callback_query.message.chat.id,
-                text=f"**Payment Method: {method.upper()}**\n\n{details}\n\n[Error: QR code file '{qr_path}' not found!]",
-                parse_mode="Markdown",
-                reply_markup=confirm_and_back_keyboard
-            )
     else:
-        # Send text-only details (for PayPal)
-        # Обратите внимание, что мы отправляем PAYPAL_DETAILS, который уже содержит заголовок и жирный шрифт.
-        await bot.send_message(
-            chat_id=callback_query.message.chat.id,
-            text=f"**Payment Method: {method.upper()}**\n\n{details}",
-            parse_mode="Markdown",
-            reply_markup=confirm_and_back_keyboard
+        await message.answer(
+            "Приветственное сообщение с инструкциями (фото не найдено).",
+            reply_markup=main_menu
         )
 
-    await callback_query.answer()
-
-
-# 4. I Paid button handler
-@dp.callback_query(lambda c: c.data == 'confirm_payment')
-async def process_confirm_payment(callback_query: types.CallbackQuery, state: FSMContext):
-    await state.set_state(PaymentStates.waiting_for_screenshot)
-    
-    # Удаляем сообщение с реквизитами
-    await bot.delete_message(
-        chat_id=callback_query.message.chat.id,
-        message_id=callback_query.message.message_id
+@dp.callback_query(F.data == "payment_methods")
+async def show_payment_methods(callback: types.CallbackQuery):
+    await callback.message.edit_caption(
+        caption="Выберите способ оплаты:",
+        reply_markup=payment_methods_keyboard
     )
-    
-    # Пытаемся удалить предыдущее сообщение (You have selected...)
-    try:
-        await bot.delete_message(
-            chat_id=callback_query.message.chat.id,
-            message_id=callback_query.message.message_id - 1
-        )
-    except Exception:
-        pass
+    await callback.answer() 
 
-    await bot.send_message(
-        chat_id=callback_query.message.chat.id,
-        text="Please **attach a screenshot** (photo) of the payment confirmation."
-    )
-    
-    await callback_query.answer()
-
-
-# 5. Screenshot handler
-@dp.message(PaymentStates.waiting_for_screenshot)
-async def process_screenshot(message: types.Message, state: FSMContext):
-    if not message.photo:
-        await message.answer("I am expecting a photo (screenshot). Please send the image.")
-        return
-
-    await state.clear()
-    
-    # Notify admin
-    if ADMIN_ID != 0:
+@dp.callback_query(F.data == "back_to_main")
+async def back_to_main_menu(callback: types.CallbackQuery):
+    if os.path.exists(WELCOME_PHOTO_PATH):
+        welcome_photo = FSInputFile(WELCOME_PHOTO_PATH)
+        await callback.message.delete()
         await bot.send_photo(
-            chat_id=ADMIN_ID,
-            photo=message.photo[-1].file_id, 
-            caption=f"❗️ **NEW PAYMENT RECEIVED** ❗️\n"
-                    f"From user: @{message.from_user.username} (ID: {message.from_user.id})\n"
-                    f"Please verify the payment screenshot.",
-            parse_mode="Markdown"
+            chat_id=callback.message.chat.id,
+            photo=welcome_photo,
+            caption="Приветственное сообщение с инструкциями.",
+            reply_markup=main_menu
         )
-    
-    # Send final message to user
-    await message.answer(
-        "✅ **Screenshot received.**\n\n"
-        "My working hours are **9:00 AM – 8:00 PM (Indochina Time)**. Please wait for payment confirmation — once it’s confirmed, you’ll receive the guide right away."
-    )
+    else:
+        await callback.message.edit_caption(
+            caption="Приветственное сообщение с инструкциями (фото не найдено).",
+            reply_markup=main_menu
+        )
+    await callback.answer()
 
+@dp.callback_query(F.data == "pay_paypal")
+async def pay_paypal(callback: types.CallbackQuery):
+    current_paypal_email = next(paypal_iterator) 
+    message_text = (
+        f"💳 **PayPal Оплата**\n\n"
+        f"Пожалуйста, отправьте сумму на этот адрес электронной почты:\n\n"
+        f"**{current_paypal_email}**\n\n"
+        f"После оплаты отправьте скриншот в чат для подтверждения."
+    )
+    await callback.message.edit_caption(
+        caption=message_text,
+        reply_markup=payment_methods_keyboard
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "pay_usdt")
+async def pay_usdt(callback: types.CallbackQuery):
+    if os.path.exists(USDT_QR_PATH):
+        qr_photo = FSInputFile(USDT_QR_PATH)
+        message_text = (
+            f"💰 **USDT (TRC20) Оплата**\n\n"
+            f"Адрес для перевода:\n"
+            f"`{USDT_ADDRESS}`\n\n"
+            f"Отправьте скриншот оплаты в чат."
+        )
+        await callback.message.delete()
+        await bot.send_photo(
+            chat_id=callback.message.chat.id,
+            photo=qr_photo,
+            caption=message_text,
+            reply_markup=payment_methods_keyboard
+        )
+    else:
+        await callback.message.edit_caption(
+            caption=f"USDT адрес: `{USDT_ADDRESS}`. QR-код не найден.",
+            reply_markup=payment_methods_keyboard
+        )
+    await callback.answer()
+
+@dp.callback_query(F.data == "pay_alipay")
+async def pay_alipay(callback: types.CallbackQuery):
+    if os.path.exists(ALIPAY_QR_PATH):
+        qr_photo = FSInputFile(ALIPAY_QR_PATH)
+        message_text = (
+            f"🇨🇳 **AliPay Оплата**\n\n"
+            f"Пожалуйста, отсканируйте QR-код для перевода.\n\n"
+            f"Отправьте скриншот оплаты в чат для подтверждения."
+        )
+        await callback.message.delete()
+        await bot.send_photo(
+            chat_id=callback.message.chat.id,
+            photo=qr_photo,
+            caption=message_text,
+            reply_markup=payment_methods_keyboard
+        )
+    else:
+        await callback.message.edit_caption(
+            caption=f"AliPay: QR-код не найден. Пожалуйста, обратитесь к администратору.", 
+            reply_markup=payment_methods_keyboard
+        )
+    await callback.answer()
 
 # =========================================================
 #                       5. RUN
