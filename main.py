@@ -277,7 +277,10 @@ async def process_screenshot(message: types.Message, state: FSMContext):
 # =========================================================
 
 async def main() -> None:
+    print("🤖 Bot is starting...")
+    print(f"Token loaded: {TOKEN[:10]}..." if TOKEN else "❌ TOKEN NOT FOUND!")
     await bot.delete_webhook(drop_pending_updates=True) 
+    print("✅ Starting polling...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
