@@ -32,7 +32,7 @@ USDT_QR_PATH = "usdt_qr.png"
 ALIPAY_QR_PATH = "alipay_qr.png" 
 WELCOME_PHOTO_PATH = "welcome_photo.jpg"
 WELCOME_PHOTO_2_PATH = "welcome_photo_2.jpg"
-GUIDE_PDF_PATH = "russia_guide.pdf"  # Загрузи PDF гайд в GitHub с таким названием!
+GUIDE_PDF_PATH = "russia_guide.pdf"
 
 # =========================================================
 #                 2. FSM States
@@ -70,10 +70,10 @@ payment_confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 # Keyboard for admin to approve/decline payment
-def get_admin_approval_keyboard(user_id: int):
+def get_admin_approval_keyboard(user_id: int, payment_method: str):
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✅ Approve & Send PDF", callback_data=f"approve_{user_id}"),
+            InlineKeyboardButton(text="✅ Approve & Send PDF", callback_data=f"approve_{user_id}_{payment_method}"),
             InlineKeyboardButton(text="❌ Decline", callback_data=f"decline_{user_id}")
         ]
     ])
@@ -209,11 +209,15 @@ async def back_to_payment_methods(callback: types.CallbackQuery, state: FSMConte
     await callback.answer()
 
 @dp.callback_query(F.data == "pay_paypal")
-async def pay_paypal(callback: types.CallbackQuery):
+async def pay_paypal(callback: types.CallbackQuery, state: FSMContext):
     current_paypal_email = next(paypal_iterator)
+    
+    # Сохраняем метод оплаты в состояние
+    await state.update_data(payment_method="PayPal")
+    
     message_text = (
         f"💳 **PayPal**\n\n"
-        f"Send payment to:\n"
+        f"Send **$18** to:\n"
         f"**{current_paypal_email}**\n\n"
         f"⚠️ **IMPORTANT:**\n"
         f"Please use the **\"Friends and Family\"** option to ensure the full payment is received. "
@@ -228,12 +232,15 @@ async def pay_paypal(callback: types.CallbackQuery):
     await callback.answer()
 
 @dp.callback_query(F.data == "pay_usdt")
-async def pay_usdt(callback: types.CallbackQuery):
+async def pay_usdt(callback: types.CallbackQuery, state: FSMContext):
+    # Сохраняем метод оплаты в состояние
+    await state.update_data(payment_method="USDT")
+    
     if os.path.exists(USDT_QR_PATH):
         qr_photo = FSInputFile(USDT_QR_PATH)
         message_text = (
             f"💰 **USDT (TRC20)**\n\n"
-            f"Payment address:\n"
+            f"Send **$18** to:\n"
             f"`{USDT_ADDRESS}`\n\n"
             f"⚠️ **IMPORTANT:** You are responsible for covering all network fees.\n\n"
             f"After payment, click **I Paid**."
@@ -249,7 +256,7 @@ async def pay_usdt(callback: types.CallbackQuery):
     else:
         message_text = (
             f"💰 **USDT (TRC20)**\n\n"
-            f"Address: `{USDT_ADDRESS}`\n\n"
+            f"Send **$18** to: `{USDT_ADDRESS}`\n\n"
             f"⚠️ **IMPORTANT:** You are responsible for covering all network fees.\n\n"
             f"After payment, click **I Paid**."
         )
@@ -261,12 +268,15 @@ async def pay_usdt(callback: types.CallbackQuery):
     await callback.answer()
 
 @dp.callback_query(F.data == "pay_alipay")
-async def pay_alipay(callback: types.CallbackQuery):
+async def pay_alipay(callback: types.CallbackQuery, state: FSMContext):
+    # Сохраняем метод оплаты в состояние
+    await state.update_data(payment_method="AliPay")
+    
     if os.path.exists(ALIPAY_QR_PATH):
         qr_photo = FSInputFile(ALIPAY_QR_PATH)
         message_text = (
             f"🇨🇳 **AliPay**\n\n"
-            f"Scan the QR code to pay.\n\n"
+            f"Send **$18** by scanning the QR code.\n\n"
             f"After payment, click **I Paid**."
         )
         await callback.message.delete()
@@ -278,7 +288,7 @@ async def pay_alipay(callback: types.CallbackQuery):
         )
     else:
         await callback.message.edit_caption(
-            caption="🇨🇳 **AliPay**\n\nQR code not found. After payment, click **I Paid**.",
+            caption="🇨🇳 **AliPay**\n\nSend **$18**. QR code not found. After payment, click **I Paid**.",
             reply_markup=payment_confirm_keyboard
         )
     await callback.answer()
@@ -294,6 +304,10 @@ async def confirm_paid(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.message(PaymentStates.waiting_screenshot, F.photo)
 async def process_screenshot(message: types.Message, state: FSMContext):
+    # Получаем метод оплаты из состояния
+    data = await state.get_data()
+    payment_method = data.get("payment_method", "Unknown")
+    
     await state.clear()
     
     # Send notification to admin with approval buttons
@@ -303,12 +317,13 @@ async def process_screenshot(message: types.Message, state: FSMContext):
                 chat_id=int(ADMIN_ID),
                 photo=message.photo[-1].file_id,
                 caption=f"💰 **New Payment Received!**\n\n"
+                        f"💳 **Payment Method:** {payment_method}\n"
                         f"👤 From: @{message.from_user.username or 'no username'}\n"
                         f"🆔 User ID: `{message.from_user.id}`\n"
                         f"📝 Name: {message.from_user.full_name}\n\n"
                         f"Please verify the payment screenshot and approve or decline.",
                 parse_mode="Markdown",
-                reply_markup=get_admin_approval_keyboard(message.from_user.id)
+                reply_markup=get_admin_approval_keyboard(message.from_user.id, payment_method)
             )
         except Exception as e:
             logger.error(f"Failed to send notification to admin: {e}")
@@ -338,7 +353,9 @@ async def waiting_photo_text(message: types.Message):
 # Admin approval handler
 @dp.callback_query(F.data.startswith("approve_"))
 async def approve_payment(callback: types.CallbackQuery):
-    user_id = int(callback.data.split("_")[1])
+    parts = callback.data.split("_")
+    user_id = int(parts[1])
+    payment_method = parts[2] if len(parts) > 2 else "Unknown"
     
     # Send PDF to customer
     try:
@@ -354,7 +371,7 @@ async def approve_payment(callback: types.CallbackQuery):
             
             # Update admin message
             await callback.message.edit_caption(
-                caption=callback.message.caption + "\n\n✅ **APPROVED** - PDF sent to customer.",
+                caption=callback.message.caption + f"\n\n✅ **APPROVED via {payment_method}** - PDF sent to customer.",
                 parse_mode="Markdown",
                 reply_markup=None
             )
