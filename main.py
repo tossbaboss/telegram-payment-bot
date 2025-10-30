@@ -31,7 +31,8 @@ paypal_iterator = cycle(PAYPAL_EMAILS)
 USDT_QR_PATH = "usdt_qr.png" 
 ALIPAY_QR_PATH = "alipay_qr.png" 
 WELCOME_PHOTO_PATH = "welcome_photo.jpg"
-WELCOME_PHOTO_2_PATH = "welcome_photo_2.jpg"  # Второе фото - добавь этот файл в GitHub!
+WELCOME_PHOTO_2_PATH = "welcome_photo_2.jpg"
+GUIDE_PDF_PATH = "russia_guide.pdf"  # Загрузи PDF гайд в GitHub с таким названием!
 
 # =========================================================
 #                 2. FSM States
@@ -67,6 +68,15 @@ payment_confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="✅ I Paid", callback_data="confirm_paid")],
     [InlineKeyboardButton(text="🔙 Back", callback_data="back_to_payment_methods")]
 ])
+
+# Keyboard for admin to approve/decline payment
+def get_admin_approval_keyboard(user_id: int):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Approve & Send PDF", callback_data=f"approve_{user_id}"),
+            InlineKeyboardButton(text="❌ Decline", callback_data=f"decline_{user_id}")
+        ]
+    ])
 
 # =========================================================
 #                 5. HANDLERS
@@ -225,6 +235,7 @@ async def pay_usdt(callback: types.CallbackQuery):
             f"💰 **USDT (TRC20)**\n\n"
             f"Payment address:\n"
             f"`{USDT_ADDRESS}`\n\n"
+            f"⚠️ **IMPORTANT:** You are responsible for covering all network fees.\n\n"
             f"After payment, click **I Paid**."
         )
         await callback.message.delete()
@@ -236,7 +247,12 @@ async def pay_usdt(callback: types.CallbackQuery):
             parse_mode="Markdown"
         )
     else:
-        message_text = f"💰 **USDT (TRC20)**\n\nAddress: `{USDT_ADDRESS}`\n\nAfter payment, click **I Paid**."
+        message_text = (
+            f"💰 **USDT (TRC20)**\n\n"
+            f"Address: `{USDT_ADDRESS}`\n\n"
+            f"⚠️ **IMPORTANT:** You are responsible for covering all network fees.\n\n"
+            f"After payment, click **I Paid**."
+        )
         await callback.message.edit_caption(
             caption=message_text,
             reply_markup=payment_confirm_keyboard,
@@ -280,7 +296,7 @@ async def confirm_paid(callback: types.CallbackQuery, state: FSMContext):
 async def process_screenshot(message: types.Message, state: FSMContext):
     await state.clear()
     
-    # Send notification to admin
+    # Send notification to admin with approval buttons
     if ADMIN_ID:
         try:
             await bot.send_photo(
@@ -290,8 +306,9 @@ async def process_screenshot(message: types.Message, state: FSMContext):
                         f"👤 From: @{message.from_user.username or 'no username'}\n"
                         f"🆔 User ID: `{message.from_user.id}`\n"
                         f"📝 Name: {message.from_user.full_name}\n\n"
-                        f"Please verify the payment screenshot.",
-                parse_mode="Markdown"
+                        f"Please verify the payment screenshot and approve or decline.",
+                parse_mode="Markdown",
+                reply_markup=get_admin_approval_keyboard(message.from_user.id)
             )
         except Exception as e:
             logger.error(f"Failed to send notification to admin: {e}")
@@ -317,6 +334,62 @@ async def process_screenshot(message: types.Message, state: FSMContext):
 @dp.message(PaymentStates.waiting_screenshot)
 async def waiting_photo_text(message: types.Message):
     await message.answer("📸 Please send a **screenshot** (photo), not text.", parse_mode="Markdown")
+
+# Admin approval handler
+@dp.callback_query(F.data.startswith("approve_"))
+async def approve_payment(callback: types.CallbackQuery):
+    user_id = int(callback.data.split("_")[1])
+    
+    # Send PDF to customer
+    try:
+        if os.path.exists(GUIDE_PDF_PATH):
+            pdf_file = FSInputFile(GUIDE_PDF_PATH)
+            await bot.send_document(
+                chat_id=user_id,
+                document=pdf_file,
+                caption="🎉 **Payment confirmed!**\n\n"
+                        "Here's your **Russia Survival Guide**. Enjoy your trip! 🇷🇺",
+                parse_mode="Markdown"
+            )
+            
+            # Update admin message
+            await callback.message.edit_caption(
+                caption=callback.message.caption + "\n\n✅ **APPROVED** - PDF sent to customer.",
+                parse_mode="Markdown",
+                reply_markup=None
+            )
+            await callback.answer("✅ Payment approved! PDF sent to customer.", show_alert=True)
+        else:
+            await callback.answer("❌ Error: PDF file not found!", show_alert=True)
+            logger.error(f"PDF file not found: {GUIDE_PDF_PATH}")
+    except Exception as e:
+        await callback.answer(f"❌ Error sending PDF: {str(e)}", show_alert=True)
+        logger.error(f"Error sending PDF to user {user_id}: {e}")
+
+# Admin decline handler
+@dp.callback_query(F.data.startswith("decline_"))
+async def decline_payment(callback: types.CallbackQuery):
+    user_id = int(callback.data.split("_")[1])
+    
+    # Notify customer
+    try:
+        await bot.send_message(
+            chat_id=user_id,
+            text="❌ **Payment verification failed.**\n\n"
+                 "Please contact support or try again with a valid payment screenshot.",
+            parse_mode="Markdown"
+        )
+        
+        # Update admin message
+        await callback.message.edit_caption(
+            caption=callback.message.caption + "\n\n❌ **DECLINED** - Customer notified.",
+            parse_mode="Markdown",
+            reply_markup=None
+        )
+        await callback.answer("❌ Payment declined. Customer notified.", show_alert=True)
+    except Exception as e:
+        await callback.answer(f"❌ Error: {str(e)}", show_alert=True)
+        logger.error(f"Error declining payment for user {user_id}: {e}")
 
 # =========================================================
 #                       6. START
