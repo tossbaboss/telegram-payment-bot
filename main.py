@@ -1,4 +1,4 @@
-import os
+аimport os
 import asyncio
 import logging
 from itertools import cycle
@@ -240,7 +240,7 @@ async def pay_usdt(callback: types.CallbackQuery, state: FSMContext):
         qr_photo = FSInputFile(USDT_QR_PATH)
         message_text = (
             f"💰 **USDT (TRC20)**\n\n"
-            f"Send **$18** to:\n"
+            f"Send **18 USDT** to:\n"
             f"`{USDT_ADDRESS}`\n\n"
             f"⚠️ **IMPORTANT:** You are responsible for covering all network fees.\n\n"
             f"After payment, click **I Paid**."
@@ -256,7 +256,7 @@ async def pay_usdt(callback: types.CallbackQuery, state: FSMContext):
     else:
         message_text = (
             f"💰 **USDT (TRC20)**\n\n"
-            f"Send **$18** to: `{USDT_ADDRESS}`\n\n"
+            f"Send **18 USDT ** to: `{USDT_ADDRESS}`\n\n"
             f"⚠️ **IMPORTANT:** You are responsible for covering all network fees.\n\n"
             f"After payment, click **I Paid**."
         )
@@ -276,7 +276,7 @@ async def pay_alipay(callback: types.CallbackQuery, state: FSMContext):
         qr_photo = FSInputFile(ALIPAY_QR_PATH)
         message_text = (
             f"🇨🇳 **AliPay**\n\n"
-            f"Send **$18** by scanning the QR code.\n\n"
+            f"Send **136 ¥** by scanning the QR code.\n\n"
             f"After payment, click **I Paid**."
         )
         await callback.message.delete()
@@ -288,7 +288,7 @@ async def pay_alipay(callback: types.CallbackQuery, state: FSMContext):
         )
     else:
         await callback.message.edit_caption(
-            caption="🇨🇳 **AliPay**\n\nSend **$18**. QR code not found. After payment, click **I Paid**.",
+            caption="🇨🇳 **AliPay**\n\nSend **136 ¥**. QR code not found. After payment, click **I Paid**.",
             reply_markup=payment_confirm_keyboard
         )
     await callback.answer()
