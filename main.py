@@ -9,16 +9,16 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
-# Включаем логирование
+# Enable logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # =========================================================
-#                   1. КОНФИГУРАЦИЯ
+#                   1. CONFIGURATION
 # =========================================================
 
 TOKEN = os.environ.get("BOT_TOKEN") 
-ADMIN_ID = os.environ.get("ADMIN_ID")  # Опционально - ID админа для пересылки скринов
+ADMIN_ID = os.environ.get("ADMIN_ID")  # Your Telegram ID for payment notifications
 
 PAYPAL_EMAILS = [
     os.environ.get("PAYPAL_EMAIL_1", "error_paypal_1@example.com"),
@@ -33,14 +33,14 @@ ALIPAY_QR_PATH = "alipay_qr.png"
 WELCOME_PHOTO_PATH = "welcome_photo.jpg" 
 
 # =========================================================
-#                 2. FSM States (для ожидания скриншота)
+#                 2. FSM States
 # =========================================================
 
 class PaymentStates(StatesGroup):
     waiting_screenshot = State()
 
 # =========================================================
-#                 3. Инициализация
+#                 3. Initialization
 # =========================================================
 
 storage = MemoryStorage()
@@ -48,52 +48,51 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=storage)
 
 # =========================================================
-#                 4. КЛАВИАТУРЫ
+#                 4. KEYBOARDS
 # =========================================================
 
 main_menu = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="💳 ОПЛАТА", callback_data="payment_methods")]
+    [InlineKeyboardButton(text="💳 PAYMENT", callback_data="payment_methods")]
 ])
 
 payment_methods_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="PayPal", callback_data="pay_paypal")],
     [InlineKeyboardButton(text="USDT (TRC20)", callback_data="pay_usdt")],
     [InlineKeyboardButton(text="AliPay", callback_data="pay_alipay")],
-    [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
+    [InlineKeyboardButton(text="🔙 Back", callback_data="back_to_main")]
 ])
 
-# Клавиатура после выбора способа оплаты
 payment_confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="✅ I Paid", callback_data="confirm_paid")],
     [InlineKeyboardButton(text="🔙 Back", callback_data="back_to_payment_methods")]
 ])
 
 # =========================================================
-#                 5. ХЕНДЛЕРЫ
+#                 5. HANDLERS
 # =========================================================
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
-    await state.clear()  # Сбрасываем любое состояние
+    await state.clear()
     
     if os.path.exists(WELCOME_PHOTO_PATH):
         welcome_photo = FSInputFile(WELCOME_PHOTO_PATH)
         await bot.send_photo(
             chat_id=message.chat.id,
             photo=welcome_photo,
-            caption="👋 Добро пожаловать!\n\nВыберите способ оплаты ниже:",
+            caption="👋 Welcome!\n\nPlease select a payment method below:",
             reply_markup=main_menu
         )
     else:
         await message.answer(
-            "👋 Добро пожаловать!\n\nВыберите способ оплаты ниже:",
+            "👋 Welcome!\n\nPlease select a payment method below:",
             reply_markup=main_menu
         )
 
 @dp.callback_query(F.data == "payment_methods")
 async def show_payment_methods(callback: types.CallbackQuery):
     await callback.message.edit_caption(
-        caption="💰 Выберите способ оплаты:",
+        caption="💰 Select your payment method:",
         reply_markup=payment_methods_keyboard
     )
     await callback.answer()
@@ -108,12 +107,12 @@ async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
         await bot.send_photo(
             chat_id=callback.message.chat.id,
             photo=welcome_photo,
-            caption="👋 Добро пожаловать!\n\nВыберите способ оплаты ниже:",
+            caption="👋 Welcome!\n\nPlease select a payment method below:",
             reply_markup=main_menu
         )
     else:
         await callback.message.edit_caption(
-            caption="👋 Добро пожаловать!\n\nВыберите способ оплаты ниже:",
+            caption="👋 Welcome!\n\nPlease select a payment method below:",
             reply_markup=main_menu
         )
     await callback.answer()
@@ -122,7 +121,7 @@ async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
 async def back_to_payment_methods(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_caption(
-        caption="💰 Выберите способ оплаты:",
+        caption="💰 Select your payment method:",
         reply_markup=payment_methods_keyboard
     )
     await callback.answer()
@@ -132,9 +131,9 @@ async def pay_paypal(callback: types.CallbackQuery):
     current_paypal_email = next(paypal_iterator)
     message_text = (
         f"💳 **PayPal**\n\n"
-        f"Отправьте оплату на:\n"
+        f"Send payment to:\n"
         f"**{current_paypal_email}**\n\n"
-        f"После оплаты нажмите **I Paid**."
+        f"After payment, click **I Paid**."
     )
     await callback.message.edit_caption(
         caption=message_text,
@@ -149,9 +148,9 @@ async def pay_usdt(callback: types.CallbackQuery):
         qr_photo = FSInputFile(USDT_QR_PATH)
         message_text = (
             f"💰 **USDT (TRC20)**\n\n"
-            f"Адрес для оплаты:\n"
+            f"Payment address:\n"
             f"`{USDT_ADDRESS}`\n\n"
-            f"После оплаты нажмите **I Paid**."
+            f"After payment, click **I Paid**."
         )
         await callback.message.delete()
         await bot.send_photo(
@@ -162,7 +161,7 @@ async def pay_usdt(callback: types.CallbackQuery):
             parse_mode="Markdown"
         )
     else:
-        message_text = f"💰 **USDT (TRC20)**\n\nАдрес: `{USDT_ADDRESS}`\n\nПосле оплаты нажмите **I Paid**."
+        message_text = f"💰 **USDT (TRC20)**\n\nAddress: `{USDT_ADDRESS}`\n\nAfter payment, click **I Paid**."
         await callback.message.edit_caption(
             caption=message_text,
             reply_markup=payment_confirm_keyboard,
@@ -176,8 +175,8 @@ async def pay_alipay(callback: types.CallbackQuery):
         qr_photo = FSInputFile(ALIPAY_QR_PATH)
         message_text = (
             f"🇨🇳 **AliPay**\n\n"
-            f"Отсканируйте QR-код для оплаты.\n\n"
-            f"После оплаты нажмите **I Paid**."
+            f"Scan the QR code to pay.\n\n"
+            f"After payment, click **I Paid**."
         )
         await callback.message.delete()
         await bot.send_photo(
@@ -188,53 +187,51 @@ async def pay_alipay(callback: types.CallbackQuery):
         )
     else:
         await callback.message.edit_caption(
-            caption="🇨🇳 **AliPay**\n\nQR-код не найден. После оплаты нажмите **I Paid**.",
+            caption="🇨🇳 **AliPay**\n\nQR code not found. After payment, click **I Paid**.",
             reply_markup=payment_confirm_keyboard
         )
     await callback.answer()
 
-# Кнопка "I Paid" - запрашиваем скриншот
 @dp.callback_query(F.data == "confirm_paid")
 async def confirm_paid(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(PaymentStates.waiting_screenshot)
     await callback.message.answer(
-        "📸 Пожалуйста, отправьте **скриншот** подтверждения оплаты."
+        "📸 Please send a **screenshot** of your payment confirmation."
     )
     await callback.answer()
 
-# Обработка скриншота
 @dp.message(PaymentStates.waiting_screenshot, F.photo)
 async def process_screenshot(message: types.Message, state: FSMContext):
     await state.clear()
     
-    # Если указан ADMIN_ID - пересылаем скрин админу
+    # Send notification to admin
     if ADMIN_ID:
         try:
             await bot.send_photo(
                 chat_id=int(ADMIN_ID),
                 photo=message.photo[-1].file_id,
-                caption=f"💰 **Новая оплата!**\n\n"
-                        f"От: @{message.from_user.username or 'без username'}\n"
-                        f"ID: `{message.from_user.id}`\n"
-                        f"Имя: {message.from_user.full_name}",
+                caption=f"💰 **New Payment Received!**\n\n"
+                        f"👤 From: @{message.from_user.username or 'no username'}\n"
+                        f"🆔 User ID: `{message.from_user.id}`\n"
+                        f"📝 Name: {message.from_user.full_name}\n\n"
+                        f"Please verify the payment screenshot.",
                 parse_mode="Markdown"
             )
         except Exception as e:
-            logger.error(f"Не удалось отправить админу: {e}")
+            logger.error(f"Failed to send notification to admin: {e}")
     
     await message.answer(
-        "✅ **Скриншот получен!**\n\n"
-        "Ваша оплата на проверке. Ожидайте подтверждения.\n\n"
-        "Напишите /start чтобы вернуться в главное меню."
+        "✅ **Screenshot received!**\n\n"
+        "Your payment is under review. Please wait for confirmation.\n\n"
+        "Type /start to return to main menu."
     )
 
-# Если прислали текст вместо фото
 @dp.message(PaymentStates.waiting_screenshot)
 async def waiting_photo_text(message: types.Message):
-    await message.answer("📸 Please, send a **screenhot** of your payment (photo).")
+    await message.answer("📸 Please send a **screenshot** (photo), not text.")
 
 # =========================================================
-#                       6. ЗАПУСК
+#                       6. START
 # =========================================================
 
 async def main():
