@@ -120,10 +120,26 @@ async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data == "back_to_payment_methods")
 async def back_to_payment_methods(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_caption(
-        caption="💰 Select your payment method:",
-        reply_markup=payment_methods_keyboard
-    )
+    
+    # Удаляем текущее сообщение (с QR-кодом если была картинка)
+    await callback.message.delete()
+    
+    # Отправляем новое сообщение с меню выбора способов оплаты
+    if os.path.exists(WELCOME_PHOTO_PATH):
+        welcome_photo = FSInputFile(WELCOME_PHOTO_PATH)
+        await bot.send_photo(
+            chat_id=callback.message.chat.id,
+            photo=welcome_photo,
+            caption="💰 Select your payment method:",
+            reply_markup=payment_methods_keyboard
+        )
+    else:
+        await bot.send_message(
+            chat_id=callback.message.chat.id,
+            text="💰 Select your payment method:",
+            reply_markup=payment_methods_keyboard
+        )
+    
     await callback.answer()
 
 @dp.callback_query(F.data == "pay_paypal")
@@ -220,10 +236,21 @@ async def process_screenshot(message: types.Message, state: FSMContext):
         except Exception as e:
             logger.error(f"Failed to send notification to admin: {e}")
     
+    # First message - payment confirmation
     await message.answer(
-        "✅ **Screenshot received!**\n\n"
-        "Your payment is under review. Please wait for confirmation.\n\n"
-        "Type /start to return to main menu."
+        "✅ **Screenshot received.**\n\n"
+        "My working hours are **9:00 AM – 8:00 PM (Indochina Time)**. Please wait for payment confirmation — once it's confirmed, you'll receive the guide right away.",
+        parse_mode="Markdown"
+    )
+    
+    # Second message - social media links
+    await message.answer(
+        "📱 **For more content follow:**\n\n"
+        "🎵 TikTok: @follow.kat\n"
+        "📸 Instagram: @follow.kat\n"
+        "💬 Telegram: katknows russian\n"
+        "🔗 LinkTree: https://linktr.ee/katknows",
+        parse_mode="Markdown"
     )
 
 @dp.message(PaymentStates.waiting_screenshot)
