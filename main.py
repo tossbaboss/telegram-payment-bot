@@ -1,4 +1,4 @@
-аimport os
+import os
 import asyncio
 import logging
 from itertools import cycle
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # =========================================================
 
 TOKEN = os.environ.get("BOT_TOKEN") 
-ADMIN_ID = os.environ.get("ADMIN_ID")  # Your Telegram ID for payment notifications
+ADMIN_ID = os.environ.get("ADMIN_ID")
 
 PAYPAL_EMAILS = [
     os.environ.get("PAYPAL_EMAIL_1", "error_paypal_1@example.com"),
@@ -69,7 +69,6 @@ payment_confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🔙 Back", callback_data="back_to_payment_methods")]
 ])
 
-# Keyboard for admin to approve/decline payment
 def get_admin_approval_keyboard(user_id: int, payment_method: str):
     return InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -97,7 +96,6 @@ async def cmd_start(message: types.Message, state: FSMContext):
         "✈️ Travelers | 😰 Anxious first-timers | 🎓 Students | 💻 Digital nomads"
     )
     
-    # Send first welcome photo
     if os.path.exists(WELCOME_PHOTO_PATH):
         welcome_photo = FSInputFile(WELCOME_PHOTO_PATH)
         await bot.send_photo(
@@ -109,7 +107,6 @@ async def cmd_start(message: types.Message, state: FSMContext):
     else:
         await message.answer(welcome_text, parse_mode="Markdown")
     
-    # Send second welcome photo with payment button
     if os.path.exists(WELCOME_PHOTO_2_PATH):
         welcome_photo_2 = FSInputFile(WELCOME_PHOTO_2_PATH)
         await bot.send_photo(
@@ -149,7 +146,6 @@ async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
     
     await callback.message.delete()
     
-    # Send first welcome photo
     if os.path.exists(WELCOME_PHOTO_PATH):
         welcome_photo = FSInputFile(WELCOME_PHOTO_PATH)
         await bot.send_photo(
@@ -165,7 +161,6 @@ async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
             parse_mode="Markdown"
         )
     
-    # Send second welcome photo with payment button
     if os.path.exists(WELCOME_PHOTO_2_PATH):
         welcome_photo_2 = FSInputFile(WELCOME_PHOTO_2_PATH)
         await bot.send_photo(
@@ -186,11 +181,8 @@ async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data == "back_to_payment_methods")
 async def back_to_payment_methods(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
-    
-    # Удаляем текущее сообщение (с QR-кодом если была картинка)
     await callback.message.delete()
     
-    # Отправляем новое сообщение с меню выбора способов оплаты
     if os.path.exists(WELCOME_PHOTO_2_PATH):
         welcome_photo_2 = FSInputFile(WELCOME_PHOTO_2_PATH)
         await bot.send_photo(
@@ -211,8 +203,6 @@ async def back_to_payment_methods(callback: types.CallbackQuery, state: FSMConte
 @dp.callback_query(F.data == "pay_paypal")
 async def pay_paypal(callback: types.CallbackQuery, state: FSMContext):
     current_paypal_email = next(paypal_iterator)
-    
-    # Сохраняем метод оплаты в состояние
     await state.update_data(payment_method="PayPal")
     
     message_text = (
@@ -233,7 +223,6 @@ async def pay_paypal(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data == "pay_usdt")
 async def pay_usdt(callback: types.CallbackQuery, state: FSMContext):
-    # Сохраняем метод оплаты в состояние
     await state.update_data(payment_method="USDT")
     
     if os.path.exists(USDT_QR_PATH):
@@ -256,7 +245,7 @@ async def pay_usdt(callback: types.CallbackQuery, state: FSMContext):
     else:
         message_text = (
             f"💰 **USDT (TRC20)**\n\n"
-            f"Send **18 USDT ** to: `{USDT_ADDRESS}`\n\n"
+            f"Send **18 USDT** to: `{USDT_ADDRESS}`\n\n"
             f"⚠️ **IMPORTANT:** You are responsible for covering all network fees.\n\n"
             f"After payment, click **I Paid**."
         )
@@ -269,14 +258,13 @@ async def pay_usdt(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data == "pay_alipay")
 async def pay_alipay(callback: types.CallbackQuery, state: FSMContext):
-    # Сохраняем метод оплаты в состояние
     await state.update_data(payment_method="AliPay")
     
     if os.path.exists(ALIPAY_QR_PATH):
         qr_photo = FSInputFile(ALIPAY_QR_PATH)
         message_text = (
             f"🇨🇳 **AliPay**\n\n"
-            f"Send **136 ¥** by scanning the QR code.\n\n"
+            f"Send **136¥** by scanning the QR code.\n\n"
             f"After payment, click **I Paid**."
         )
         await callback.message.delete()
@@ -288,7 +276,7 @@ async def pay_alipay(callback: types.CallbackQuery, state: FSMContext):
         )
     else:
         await callback.message.edit_caption(
-            caption="🇨🇳 **AliPay**\n\nSend **136 ¥**. QR code not found. After payment, click **I Paid**.",
+            caption="🇨🇳 **AliPay**\n\nSend **136¥**. QR code not found. After payment, click **I Paid**.",
             reply_markup=payment_confirm_keyboard
         )
     await callback.answer()
@@ -304,13 +292,11 @@ async def confirm_paid(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.message(PaymentStates.waiting_screenshot, F.photo)
 async def process_screenshot(message: types.Message, state: FSMContext):
-    # Получаем метод оплаты из состояния
     data = await state.get_data()
     payment_method = data.get("payment_method", "Unknown")
     
     await state.clear()
     
-    # Send notification to admin with approval buttons
     if ADMIN_ID:
         try:
             await bot.send_photo(
@@ -328,14 +314,12 @@ async def process_screenshot(message: types.Message, state: FSMContext):
         except Exception as e:
             logger.error(f"Failed to send notification to admin: {e}")
     
-    # First message - payment confirmation
     await message.answer(
         "✅ **Screenshot received.**\n\n"
         "My working hours are **9:00 AM – 8:00 PM (Indochina Time)**. Please wait for payment confirmation — once it's confirmed, you'll receive the guide right away.",
         parse_mode="Markdown"
     )
     
-    # Second message - social media links with hyperlinks
     await message.answer(
         "📱 **For more content follow:**\n\n"
         "🎵 TikTok: [@follow.kat](https://www.tiktok.com/@follow.kat)\n"
@@ -350,14 +334,12 @@ async def process_screenshot(message: types.Message, state: FSMContext):
 async def waiting_photo_text(message: types.Message):
     await message.answer("📸 Please send a **screenshot** (photo), not text.", parse_mode="Markdown")
 
-# Admin approval handler
 @dp.callback_query(F.data.startswith("approve_"))
 async def approve_payment(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     user_id = int(parts[1])
     payment_method = parts[2] if len(parts) > 2 else "Unknown"
     
-    # Send PDF to customer
     try:
         if os.path.exists(GUIDE_PDF_PATH):
             pdf_file = FSInputFile(GUIDE_PDF_PATH)
@@ -369,7 +351,6 @@ async def approve_payment(callback: types.CallbackQuery):
                 parse_mode="Markdown"
             )
             
-            # Update admin message
             await callback.message.edit_caption(
                 caption=callback.message.caption + f"\n\n✅ **APPROVED via {payment_method}** - PDF sent to customer.",
                 parse_mode="Markdown",
@@ -383,12 +364,10 @@ async def approve_payment(callback: types.CallbackQuery):
         await callback.answer(f"❌ Error sending PDF: {str(e)}", show_alert=True)
         logger.error(f"Error sending PDF to user {user_id}: {e}")
 
-# Admin decline handler
 @dp.callback_query(F.data.startswith("decline_"))
 async def decline_payment(callback: types.CallbackQuery):
     user_id = int(callback.data.split("_")[1])
     
-    # Notify customer
     try:
         await bot.send_message(
             chat_id=user_id,
@@ -397,7 +376,6 @@ async def decline_payment(callback: types.CallbackQuery):
             parse_mode="Markdown"
         )
         
-        # Update admin message
         await callback.message.edit_caption(
             caption=callback.message.caption + "\n\n❌ **DECLINED** - Customer notified.",
             parse_mode="Markdown",
