@@ -308,7 +308,7 @@ async def process_screenshot(message: types.Message, state: FSMContext):
         "📱 **For more content follow:**\n\n"
         "🎵 TikTok: [@follow.kat](https://www.tiktok.com/@follow.kat)\n"
         "📸 Instagram: [@follow.kat](https://www.instagram.com/follow.kat)\n"
-        "💬 Telegram Channel: [katknows russian](https://t.me/katknows)\n"
+        "💬 Telegram Channel: [katknows russian](https://t.me/+GRoYYMdRGf8xY2M9)\n"
         "🔗 LinkTree: [linktr.ee/katknows](https://linktr.ee/katknows)",
         parse_mode="Markdown",
         disable_web_page_preview=True
