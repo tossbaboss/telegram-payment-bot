@@ -30,7 +30,8 @@ paypal_iterator = cycle(PAYPAL_EMAILS)
 
 USDT_QR_PATH = "usdt_qr.png" 
 ALIPAY_QR_PATH = "alipay_qr.png" 
-WELCOME_PHOTO_PATH = "welcome_photo.jpg" 
+WELCOME_PHOTO_PATH = "welcome_photo.jpg"
+WELCOME_PHOTO_2_PATH = "welcome_photo_2.jpg"  # Второе фото - добавь этот файл в GitHub!
 
 # =========================================================
 #                 2. FSM States
@@ -75,17 +76,41 @@ payment_confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
     
+    welcome_text = (
+        "**Your First Day in Russia — Stress-Free Survival Guide** 🇷🇺\n\n"
+        "Landing in Russia soon? Don't panic. Our ultimate guide walks you through your first 24 hours, step-by-step.\n\n"
+        "For just **$18**, get access to:\n\n"
+        "• **The Essential Guide:** From airport to hotel, and your first real meal.\n"
+        "• **Ready-to-Use Phrases** for taxi, cafe, and emergencies — with native audio for perfect pronunciation.\n"
+        "• **Must-Have Tips:** SIM cards, money, and apps that actually work.\n"
+        "• **Cultural Do's & Don'ts:** Avoid awkward moments and connect with locals.\n\n"
+        "✈️ Travelers | 😰 Anxious first-timers | 🎓 Students | 💻 Digital nomads"
+    )
+    
+    # Send first welcome photo
     if os.path.exists(WELCOME_PHOTO_PATH):
         welcome_photo = FSInputFile(WELCOME_PHOTO_PATH)
         await bot.send_photo(
             chat_id=message.chat.id,
             photo=welcome_photo,
-            caption="👋 Welcome!\n\nPlease select a payment method below:",
+            caption=welcome_text,
+            parse_mode="Markdown"
+        )
+    else:
+        await message.answer(welcome_text, parse_mode="Markdown")
+    
+    # Send second welcome photo with payment button
+    if os.path.exists(WELCOME_PHOTO_2_PATH):
+        welcome_photo_2 = FSInputFile(WELCOME_PHOTO_2_PATH)
+        await bot.send_photo(
+            chat_id=message.chat.id,
+            photo=welcome_photo_2,
+            caption="👇 Ready to start your Russian adventure? Click below to proceed:",
             reply_markup=main_menu
         )
     else:
         await message.answer(
-            "👋 Welcome!\n\nPlease select a payment method below:",
+            "👇 Ready to start your Russian adventure? Click below to proceed:",
             reply_markup=main_menu
         )
 
@@ -101,20 +126,51 @@ async def show_payment_methods(callback: types.CallbackQuery):
 async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     
+    welcome_text = (
+        "**Your First Day in Russia — Stress-Free Survival Guide** 🇷🇺\n\n"
+        "Landing in Russia soon? Don't panic. Our ultimate guide walks you through your first 24 hours, step-by-step.\n\n"
+        "For just **$18**, get access to:\n\n"
+        "• **The Essential Guide:** From airport to hotel, and your first real meal.\n"
+        "• **Ready-to-Use Phrases** for taxi, cafe, and emergencies — with native audio for perfect pronunciation.\n"
+        "• **Must-Have Tips:** SIM cards, money, and apps that actually work.\n"
+        "• **Cultural Do's & Don'ts:** Avoid awkward moments and connect with locals.\n\n"
+        "✈️ Travelers | 😰 Anxious first-timers | 🎓 Students | 💻 Digital nomads"
+    )
+    
+    await callback.message.delete()
+    
+    # Send first welcome photo
     if os.path.exists(WELCOME_PHOTO_PATH):
         welcome_photo = FSInputFile(WELCOME_PHOTO_PATH)
-        await callback.message.delete()
         await bot.send_photo(
             chat_id=callback.message.chat.id,
             photo=welcome_photo,
-            caption="👋 Welcome!\n\nPlease select a payment method below:",
+            caption=welcome_text,
+            parse_mode="Markdown"
+        )
+    else:
+        await bot.send_message(
+            chat_id=callback.message.chat.id,
+            text=welcome_text,
+            parse_mode="Markdown"
+        )
+    
+    # Send second welcome photo with payment button
+    if os.path.exists(WELCOME_PHOTO_2_PATH):
+        welcome_photo_2 = FSInputFile(WELCOME_PHOTO_2_PATH)
+        await bot.send_photo(
+            chat_id=callback.message.chat.id,
+            photo=welcome_photo_2,
+            caption="👇 Ready to start your Russian adventure? Click below to proceed:",
             reply_markup=main_menu
         )
     else:
-        await callback.message.edit_caption(
-            caption="👋 Welcome!\n\nPlease select a payment method below:",
+        await bot.send_message(
+            chat_id=callback.message.chat.id,
+            text="👇 Ready to start your Russian adventure? Click below to proceed:",
             reply_markup=main_menu
         )
+    
     await callback.answer()
 
 @dp.callback_query(F.data == "back_to_payment_methods")
@@ -125,11 +181,11 @@ async def back_to_payment_methods(callback: types.CallbackQuery, state: FSMConte
     await callback.message.delete()
     
     # Отправляем новое сообщение с меню выбора способов оплаты
-    if os.path.exists(WELCOME_PHOTO_PATH):
-        welcome_photo = FSInputFile(WELCOME_PHOTO_PATH)
+    if os.path.exists(WELCOME_PHOTO_2_PATH):
+        welcome_photo_2 = FSInputFile(WELCOME_PHOTO_2_PATH)
         await bot.send_photo(
             chat_id=callback.message.chat.id,
-            photo=welcome_photo,
+            photo=welcome_photo_2,
             caption="💰 Select your payment method:",
             reply_markup=payment_methods_keyboard
         )
@@ -149,6 +205,9 @@ async def pay_paypal(callback: types.CallbackQuery):
         f"💳 **PayPal**\n\n"
         f"Send payment to:\n"
         f"**{current_paypal_email}**\n\n"
+        f"⚠️ **IMPORTANT:**\n"
+        f"Please use the **\"Friends and Family\"** option to ensure the full payment is received. "
+        f"If using **\"Goods and Services,\"** **YOU MUST COVER ALL PROCESSING FEES.**\n\n"
         f"After payment, click **I Paid**."
     )
     await callback.message.edit_caption(
@@ -212,7 +271,8 @@ async def pay_alipay(callback: types.CallbackQuery):
 async def confirm_paid(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(PaymentStates.waiting_screenshot)
     await callback.message.answer(
-        "📸 Please send a **screenshot** of your payment confirmation."
+        "📸 Please send a **screenshot** of your payment confirmation.",
+        parse_mode="Markdown"
     )
     await callback.answer()
 
@@ -243,19 +303,20 @@ async def process_screenshot(message: types.Message, state: FSMContext):
         parse_mode="Markdown"
     )
     
-    # Second message - social media links
+    # Second message - social media links with hyperlinks
     await message.answer(
         "📱 **For more content follow:**\n\n"
-        "🎵 TikTok: @follow.kat\n"
-        "📸 Instagram: @follow.kat\n"
-        "💬 Telegram: katknows russian\n"
-        "🔗 LinkTree: https://linktr.ee/katknows",
-        parse_mode="Markdown"
+        "🎵 TikTok: [@follow.kat](https://www.tiktok.com/@follow.kat)\n"
+        "📸 Instagram: [@follow.kat](https://www.instagram.com/follow.kat)\n"
+        "💬 Telegram Channel: [katknows russian](https://t.me/katknows)\n"
+        "🔗 LinkTree: [linktr.ee/katknows](https://linktr.ee/katknows)",
+        parse_mode="Markdown",
+        disable_web_page_preview=True
     )
 
 @dp.message(PaymentStates.waiting_screenshot)
 async def waiting_photo_text(message: types.Message):
-    await message.answer("📸 Please send a **screenshot** (photo), not text.")
+    await message.answer("📸 Please send a **screenshot** (photo), not text.", parse_mode="Markdown")
 
 # =========================================================
 #                       6. START
