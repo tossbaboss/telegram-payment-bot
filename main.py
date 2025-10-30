@@ -231,7 +231,7 @@ async def process_screenshot(message: types.Message, state: FSMContext):
 # Если прислали текст вместо фото
 @dp.message(PaymentStates.waiting_screenshot)
 async def waiting_photo_text(message: types.Message):
-    await message.answer("📸 Пожалуйста, пришлите **скриншот** (фото), а не текст.")
+    await message.answer("📸 Please, send a **screenhot** of your payment (photo).")
 
 # =========================================================
 #                       6. ЗАПУСК
