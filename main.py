@@ -178,7 +178,16 @@ async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data == "back_to_payment_methods")
 async def back_to_payment_methods(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.delete()
+    
+    # Удаляем все предыдущие сообщения (кнопки, адрес/username, QR-код)
+    try:
+        # Удаляем сообщение с кнопками
+        await callback.message.delete()
+        # Удаляем предыдущие 2 сообщения (адрес/username и инструкция)
+        await bot.delete_message(callback.message.chat.id, callback.message.message_id - 1)
+        await bot.delete_message(callback.message.chat.id, callback.message.message_id - 2)
+    except Exception as e:
+        logger.error(f"Error deleting messages: {e}")
     
     if os.path.exists(WELCOME_PHOTO_2_PATH):
         welcome_photo_2 = FSInputFile(WELCOME_PHOTO_2_PATH)
@@ -205,7 +214,7 @@ async def pay_paypal(callback: types.CallbackQuery, state: FSMContext):
     # Первое сообщение - инструкция с картинкой
     message_text = (
         f"💳 PayPal\n\n"
-        f"Send $18 to the email below 👇\n\n"
+        f"Send $18 to the username below 👇\n\n"
         f"⚠️ IMPORTANT:\n"
         f"Please use the \"Friends and Family\" option to ensure the full payment is received. "
         f"If using \"Goods and Services,\" YOU MUST COVER PROCESSING FEES."
@@ -214,7 +223,7 @@ async def pay_paypal(callback: types.CallbackQuery, state: FSMContext):
         caption=message_text
     )
     
-    # Второе сообщение - email для копирования
+    # Второе сообщение - username для копирования
     await bot.send_message(
         chat_id=callback.message.chat.id,
         text=f"`{current_paypal_email}`",
@@ -301,8 +310,20 @@ async def pay_alipay(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data == "confirm_paid")
 async def confirm_paid(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(PaymentStates.waiting_screenshot)
-    await callback.message.answer(
-        "📸 Please send a screenshot of your payment confirmation."
+    
+    # Удаляем предыдущие сообщения с платежной информацией
+    try:
+        # Удаляем сообщение с кнопками
+        await callback.message.delete()
+        # Пытаемся удалить предыдущие 2 сообщения (адрес/username и инструкция)
+        await bot.delete_message(callback.message.chat.id, callback.message.message_id - 1)
+        await bot.delete_message(callback.message.chat.id, callback.message.message_id - 2)
+    except Exception as e:
+        logger.error(f"Error deleting messages: {e}")
+    
+    await bot.send_message(
+        chat_id=callback.message.chat.id,
+        text="📸 Please send a screenshot of your payment confirmation."
     )
     await callback.answer()
 
@@ -333,7 +354,7 @@ async def process_screenshot(message: types.Message, state: FSMContext):
     await message.answer(
         "✅ Screenshot received.\n\n"
         "My working hours are 9:00 AM – 8:00 PM (Indochina Time).\n"
-        "Please wait for payment confirmation. Once it's confirmed, you'll receive the guide right away."
+        "Please wait for payment confirmation. Once it's confirmed, you'll receive the guide right away. 💙"
     )
     
     await message.answer(
