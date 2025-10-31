@@ -86,13 +86,13 @@ async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
     
     welcome_text = (
-        "**Your First Day in Russia — Stress-Free Survival Guide** 🇷🇺\n\n"
+        "Your First Day in Russia — Stress-Free Survival Guide 🇷🇺\n\n"
         "Landing in Russia soon? Don't panic. Our ultimate guide walks you through your first 24 hours, step-by-step.\n\n"
-        "For just **$18**, get access to:\n\n"
-        "• **The Essential Guide:** From airport to hotel, and your first real meal.\n"
-        "• **Ready-to-Use Phrases** for taxi, cafe, and emergencies — with native audio for perfect pronunciation.\n"
-        "• **Must-Have Tips:** SIM cards, money, and apps that actually work.\n"
-        "• **Cultural Do's & Don'ts:** Avoid awkward moments and connect with locals.\n\n"
+        "For just $18, get access to:\n\n"
+        "• The Essential Guide: From airport to hotel, and your first real meal.\n"
+        "• Ready-to-Use Phrases for taxi, cafe, and emergencies — with native audio for perfect pronunciation.\n"
+        "• Must-Have Tips: SIM cards, money, and apps that actually work.\n"
+        "• Cultural Do's & Don'ts: Avoid awkward moments and connect with locals.\n\n"
         "✈️ Travelers | 😰 Anxious first-timers | 🎓 Students | 💻 Digital nomads"
     )
     
@@ -101,11 +101,10 @@ async def cmd_start(message: types.Message, state: FSMContext):
         await bot.send_photo(
             chat_id=message.chat.id,
             photo=welcome_photo,
-            caption=welcome_text,
-            parse_mode="Markdown"
+            caption=welcome_text
         )
     else:
-        await message.answer(welcome_text, parse_mode="Markdown")
+        await message.answer(welcome_text)
     
     if os.path.exists(WELCOME_PHOTO_2_PATH):
         welcome_photo_2 = FSInputFile(WELCOME_PHOTO_2_PATH)
@@ -134,13 +133,13 @@ async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     
     welcome_text = (
-        "**Your First Day in Russia — Stress-Free Survival Guide** 🇷🇺\n\n"
+        "Your First Day in Russia — Stress-Free Survival Guide 🇷🇺\n\n"
         "Landing in Russia soon? Don't panic. Our ultimate guide walks you through your first 24 hours, step-by-step.\n\n"
-        "For just **$18**, get access to:\n\n"
-        "• **The Essential Guide:** From airport to hotel, and your first real meal.\n"
-        "• **Ready-to-Use Phrases** for taxi, cafe, and emergencies — with native audio for perfect pronunciation.\n"
-        "• **Must-Have Tips:** SIM cards, money, and apps that actually work.\n"
-        "• **Cultural Do's & Don'ts:** Avoid awkward moments and connect with locals.\n\n"
+        "For just $18, get access to:\n\n"
+        "• The Essential Guide: From airport to hotel, and your first real meal.\n"
+        "• Ready-to-Use Phrases for taxi, cafe, and emergencies — with native audio for perfect pronunciation.\n"
+        "• Must-Have Tips: SIM cards, money, and apps that actually work.\n"
+        "• Cultural Do's & Don'ts: Avoid awkward moments and connect with locals.\n\n"
         "✈️ Travelers | 😰 Anxious first-timers | 🎓 Students | 💻 Digital nomads"
     )
     
@@ -151,14 +150,12 @@ async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
         await bot.send_photo(
             chat_id=callback.message.chat.id,
             photo=welcome_photo,
-            caption=welcome_text,
-            parse_mode="Markdown"
+            caption=welcome_text
         )
     else:
         await bot.send_message(
             chat_id=callback.message.chat.id,
-            text=welcome_text,
-            parse_mode="Markdown"
+            text=welcome_text
         )
     
     if os.path.exists(WELCOME_PHOTO_2_PATH):
@@ -206,18 +203,17 @@ async def pay_paypal(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(payment_method="PayPal")
     
     message_text = (
-        f"💳 **PayPal**\n\n"
-        f"Send **$18** to:\n"
-        f"**{current_paypal_email}**\n\n"
-        f"⚠️ **IMPORTANT:**\n"
-        f"Please use the **\"Friends and Family\"** option to ensure the full payment is received. "
-        f"If using **\"Goods and Services,\"** **YOU MUST COVER ALL PROCESSING FEES.**\n\n"
-        f"After payment, click **I Paid**."
+        f"💳 PayPal\n\n"
+        f"Send $18 to:\n"
+        f"{current_paypal_email}\n\n"
+        f"⚠️ IMPORTANT:\n"
+        f"Please use the \"Friends and Family\" option to ensure the full payment is received. "
+        f"If using \"Goods and Services,\" YOU MUST COVER PROCESSING FEES.\n\n"
+        f"After payment, click I Paid."
     )
     await callback.message.edit_caption(
         caption=message_text,
-        reply_markup=payment_confirm_keyboard,
-        parse_mode="Markdown"
+        reply_markup=payment_confirm_keyboard
     )
     await callback.answer()
 
@@ -228,30 +224,39 @@ async def pay_usdt(callback: types.CallbackQuery, state: FSMContext):
     if os.path.exists(USDT_QR_PATH):
         qr_photo = FSInputFile(USDT_QR_PATH)
         message_text = (
-            f"💰 **USDT (TRC20)**\n\n"
-            f"Send **18 USDT** to:\n"
-            f"`{USDT_ADDRESS}`\n\n"
-            f"⚠️ **IMPORTANT:** You are responsible for covering all network fees.\n\n"
-            f"After payment, click **I Paid**."
+            f"💰 USDT (TRC20)\n\n"
+            f"Send 18 USDT to the address below.\n\n"
+            f"⚠️ IMPORTANT: You are responsible for covering network fees.\n\n"
+            f"After payment, click I Paid."
         )
         await callback.message.delete()
         await bot.send_photo(
             chat_id=callback.message.chat.id,
             photo=qr_photo,
             caption=message_text,
-            reply_markup=payment_confirm_keyboard,
+            reply_markup=payment_confirm_keyboard
+        )
+        # Отправляем адрес отдельным сообщением
+        await bot.send_message(
+            chat_id=callback.message.chat.id,
+            text=f"`{USDT_ADDRESS}`",
             parse_mode="Markdown"
         )
     else:
         message_text = (
-            f"💰 **USDT (TRC20)**\n\n"
-            f"Send **18 USDT** to: `{USDT_ADDRESS}`\n\n"
-            f"⚠️ **IMPORTANT:** You are responsible for covering all network fees.\n\n"
-            f"After payment, click **I Paid**."
+            f"💰 USDT (TRC20)\n\n"
+            f"Send 18 USDT to the address below.\n\n"
+            f"⚠️ IMPORTANT: You are responsible for covering network fees.\n\n"
+            f"After payment, click I Paid."
         )
         await callback.message.edit_caption(
             caption=message_text,
-            reply_markup=payment_confirm_keyboard,
+            reply_markup=payment_confirm_keyboard
+        )
+        # Отправляем адрес отдельным сообщением
+        await bot.send_message(
+            chat_id=callback.message.chat.id,
+            text=f"`{USDT_ADDRESS}`",
             parse_mode="Markdown"
         )
     await callback.answer()
@@ -263,9 +268,9 @@ async def pay_alipay(callback: types.CallbackQuery, state: FSMContext):
     if os.path.exists(ALIPAY_QR_PATH):
         qr_photo = FSInputFile(ALIPAY_QR_PATH)
         message_text = (
-            f"🇨🇳 **AliPay**\n\n"
-            f"Send **136¥** by scanning the QR code.\n\n"
-            f"After payment, click **I Paid**."
+            f"🇨🇳 AliPay\n\n"
+            f"Send 136¥ by scanning the QR code.\n\n"
+            f"After payment, click I Paid."
         )
         await callback.message.delete()
         await bot.send_photo(
@@ -276,7 +281,7 @@ async def pay_alipay(callback: types.CallbackQuery, state: FSMContext):
         )
     else:
         await callback.message.edit_caption(
-            caption="🇨🇳 **AliPay**\n\nSend **136¥**. QR code not found. After payment, click **I Paid**.",
+            caption="🇨🇳 AliPay\n\nSend 136¥. QR code not found. After payment, click I Paid.",
             reply_markup=payment_confirm_keyboard
         )
     await callback.answer()
@@ -285,8 +290,7 @@ async def pay_alipay(callback: types.CallbackQuery, state: FSMContext):
 async def confirm_paid(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(PaymentStates.waiting_screenshot)
     await callback.message.answer(
-        "📸 Please send a **screenshot** of your payment confirmation.",
-        parse_mode="Markdown"
+        "📸 Please send a screenshot of your payment confirmation."
     )
     await callback.answer()
 
@@ -302,8 +306,8 @@ async def process_screenshot(message: types.Message, state: FSMContext):
             await bot.send_photo(
                 chat_id=int(ADMIN_ID),
                 photo=message.photo[-1].file_id,
-                caption=f"💰 **New Payment Received!**\n\n"
-                        f"💳 **Payment Method:** {payment_method}\n"
+                caption=f"💰 New Payment Received!\n\n"
+                        f"💳 Payment Method: {payment_method}\n"
                         f"👤 From: @{message.from_user.username or 'no username'}\n"
                         f"🆔 User ID: `{message.from_user.id}`\n"
                         f"📝 Name: {message.from_user.full_name}\n\n"
@@ -315,13 +319,13 @@ async def process_screenshot(message: types.Message, state: FSMContext):
             logger.error(f"Failed to send notification to admin: {e}")
     
     await message.answer(
-        "✅ **Screenshot received.**\n\n"
-        "My working hours are **9:00 AM – 8:00 PM (Indochina Time)**. Please wait for payment confirmation — once it's confirmed, you'll receive the guide right away.",
-        parse_mode="Markdown"
+        "✅ Screenshot received.\n\n"
+        "My working hours are 9:00 AM – 8:00 PM (Indochina Time).\n"
+        "Please wait for payment confirmation. Once it's confirmed, you'll receive the guide right away."
     )
     
     await message.answer(
-        "📱 **For more content follow:**\n\n"
+        "📱 For more content follow:\n\n"
         "🎵 TikTok: [@follow.kat](https://www.tiktok.com/@follow.kat)\n"
         "📸 Instagram: [@follow.kat](https://www.instagram.com/follow.kat)\n"
         "💬 Telegram Channel: [katknows russian](https://t.me/+GRoYYMdRGf8xY2M9)\n"
@@ -332,7 +336,7 @@ async def process_screenshot(message: types.Message, state: FSMContext):
 
 @dp.message(PaymentStates.waiting_screenshot)
 async def waiting_photo_text(message: types.Message):
-    await message.answer("📸 Please send a **screenshot** (photo), not text.", parse_mode="Markdown")
+    await message.answer("📸 Please send a screenshot (photo), not text.")
 
 @dp.callback_query(F.data.startswith("approve_"))
 async def approve_payment(callback: types.CallbackQuery):
@@ -346,13 +350,12 @@ async def approve_payment(callback: types.CallbackQuery):
             await bot.send_document(
                 chat_id=user_id,
                 document=pdf_file,
-                caption="🎉 **Payment confirmed!**\n\n"
-                        "Here's your **Russia Survival Guide**. Enjoy your trip! 🇷🇺",
-                parse_mode="Markdown"
+                caption="🎉 Payment confirmed!\n\n"
+                        "Here's your Russia Survival Guide. Enjoy your trip! 🇷🇺"
             )
             
             await callback.message.edit_caption(
-                caption=callback.message.caption + f"\n\n✅ **APPROVED via {payment_method}** - PDF sent to customer.",
+                caption=callback.message.caption + f"\n\n✅ APPROVED via {payment_method} - PDF sent to customer.",
                 parse_mode="Markdown",
                 reply_markup=None
             )
@@ -371,13 +374,12 @@ async def decline_payment(callback: types.CallbackQuery):
     try:
         await bot.send_message(
             chat_id=user_id,
-            text="❌ **Payment verification failed.**\n\n"
-                 "Please contact support or try again with a valid payment screenshot.",
-            parse_mode="Markdown"
+            text="❌ Payment verification failed.\n\n"
+                 "Please contact support or try again with a valid payment screenshot."
         )
         
         await callback.message.edit_caption(
-            caption=callback.message.caption + "\n\n❌ **DECLINED** - Customer notified.",
+            caption=callback.message.caption + "\n\n❌ DECLINED - Customer notified.",
             parse_mode="Markdown",
             reply_markup=None
         )
