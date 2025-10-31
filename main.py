@@ -202,19 +202,32 @@ async def pay_paypal(callback: types.CallbackQuery, state: FSMContext):
     current_paypal_email = next(paypal_iterator)
     await state.update_data(payment_method="PayPal")
     
+    # Первое сообщение - инструкция с картинкой
     message_text = (
         f"💳 PayPal\n\n"
-        f"Send $18 to:\n"
-        f"{current_paypal_email}\n\n"
+        f"Send $18 to the email below 👇\n\n"
         f"⚠️ IMPORTANT:\n"
         f"Please use the \"Friends and Family\" option to ensure the full payment is received. "
-        f"If using \"Goods and Services,\" YOU MUST COVER PROCESSING FEES.\n\n"
-        f"After payment, click I Paid."
+        f"If using \"Goods and Services,\" YOU MUST COVER PROCESSING FEES."
     )
     await callback.message.edit_caption(
-        caption=message_text,
+        caption=message_text
+    )
+    
+    # Второе сообщение - email для копирования
+    await bot.send_message(
+        chat_id=callback.message.chat.id,
+        text=f"`{current_paypal_email}`",
+        parse_mode="Markdown"
+    )
+    
+    # Третье сообщение - кнопки
+    await bot.send_message(
+        chat_id=callback.message.chat.id,
+        text="After payment, click I Paid.",
         reply_markup=payment_confirm_keyboard
     )
+    
     await callback.answer()
 
 @dp.callback_query(F.data == "pay_usdt")
@@ -225,40 +238,39 @@ async def pay_usdt(callback: types.CallbackQuery, state: FSMContext):
         qr_photo = FSInputFile(USDT_QR_PATH)
         message_text = (
             f"💰 USDT (TRC20)\n\n"
-            f"Send 18 USDT to the address below.\n\n"
-            f"⚠️ IMPORTANT: You are responsible for covering network fees.\n\n"
-            f"After payment, click I Paid."
+            f"Send 18 USDT to the address below 👇\n\n"
+            f"⚠️ IMPORTANT: You are responsible for covering network fees."
         )
         await callback.message.delete()
         await bot.send_photo(
             chat_id=callback.message.chat.id,
             photo=qr_photo,
-            caption=message_text,
-            reply_markup=payment_confirm_keyboard
-        )
-        # Отправляем адрес отдельным сообщением
-        await bot.send_message(
-            chat_id=callback.message.chat.id,
-            text=f"`{USDT_ADDRESS}`",
-            parse_mode="Markdown"
+            caption=message_text
         )
     else:
         message_text = (
             f"💰 USDT (TRC20)\n\n"
-            f"Send 18 USDT to the address below.\n\n"
-            f"⚠️ IMPORTANT: You are responsible for covering network fees.\n\n"
-            f"After payment, click I Paid."
+            f"Send 18 USDT to the address below 👇\n\n"
+            f"⚠️ IMPORTANT: You are responsible for covering network fees."
         )
         await callback.message.edit_caption(
-            caption=message_text,
-            reply_markup=payment_confirm_keyboard
+            caption=message_text
         )
-        # Отправляем адрес отдельным сообщением
-        await bot.send_message(
-            chat_id=callback.message.chat.id,
-            text=f"`{USDT_ADDRESS}`",
-            parse_mode="Markdown"
-        )
+    
+    # Второе сообщение - адрес для копирования
+    await bot.send_message(
+        chat_id=callback.message.chat.id,
+        text=f"`{USDT_ADDRESS}`",
+        parse_mode="Markdown"
+    )
+    
+    # Третье сообщение - кнопки
+    await bot.send_message(
+        chat_id=callback.message.chat.id,
+        text="After payment, click I Paid.",
+        reply_markup=payment_confirm_keyboard
+    )
+    
     await callback.answer()
 
 @dp.callback_query(F.data == "pay_alipay")
