@@ -32,7 +32,7 @@ USDT_QR_PATH = "usdt_qr.png"
 ALIPAY_QR_PATH = "alipay_qr.png" 
 WELCOME_PHOTO_PATH = "welcome_photo.jpg"
 WELCOME_PHOTO_2_PATH = "welcome_photo_2.jpg"
-GUIDE_PDF_PATH = "russia_guide.pdf"
+GUIDE_PDF_PATH = "YOUR FIRST DAY IN RUSSIA.pdf"
 
 # =========================================================
 #                 2. FSM States
